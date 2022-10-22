@@ -9,10 +9,10 @@
 .define food_l           $10 ; food location, low byte
 .define food_h           $11 ; food location, high byte
 
-.define move_up 1
-.define move_down 2
-.define move_left 4
-.define move_right 8
+.define up_pressed    1
+.define down_pressed  2
+.define left_pressed  4
+.define right_pressed 8
 
 .define last_key $4000
 .define seed $20
@@ -25,11 +25,12 @@ start:
     JSR loop
 
 init:
+    JSR read_input
     JSR init_snake
     JSR init_food
 
 init_snake:
-    LDA #move_right
+    LDA #right_pressed
     STA snake_direction ; set right as start direction
     
     LDA #2
@@ -58,11 +59,67 @@ init_food:
     STA food_l  
     RTS
 
-loop:
+loop: 
+    JSR read_input
     JSR draw_food
     JSR draw_snake
     JMP loop
 
+read_input:
+    LDA last_key
+    
+    CMP #up_pressed
+    BEQ move_up
+    
+    CMP #right_pressed
+    BEQ move_right
+    
+    CMP #down_pressed
+    BEQ move_down
+    
+    CMP #left_pressed
+    BEQ move_left
+    RTS
+
+move_up:
+    LDA #down_pressed
+    BIT snake_direction
+    BEQ skip_input
+
+    LDA #up_pressed
+    STA snake_direction
+    RTS
+
+move_down:
+    LDA #up_pressed
+    BIT snake_direction
+    BEQ skip_input
+    
+    LDA #down_pressed
+    STA snake_direction
+    RTS
+
+move_left:
+    LDA #right_pressed
+    BIT snake_direction
+    BEQ skip_input
+    
+    LDA #left_pressed
+    STA snake_direction
+    RTS
+    
+move_right:
+    LDA #left_pressed
+    BIT snake_direction     ; if the previous dir was left, you can't move to right
+    BEQ skip_input
+    
+    LDA #right_pressed
+    STA snake_direction
+    RTS
+    
+skip_input:
+    RTS
+    
 draw_snake:
     LDX snake_length
     LDA #0
