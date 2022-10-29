@@ -1,3 +1,7 @@
+; load the whole AIV logo in the chr to the left (nametable 0) AND right (nametable 1) nametables
+; implement horizontal scrolling driven by the joypad
+; AND implement horizontal and vertical scrolling for one sprite (again managed by the joypad)
+
 .DB "NES", $1A, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 .define PPUCTRL   $2000
@@ -10,12 +14,29 @@
 .define PPUDATA   $2007
 .define JOYPAD1   $4016
 
-; .define scroll_x  $00
-; .define buttons   $01
-.define nam_l   $02
-.define nam_h   $03
+.define scroll_x  $00
+.define buttons   $01
+.define nam_l     $02
+.define nam_h     $03
 
 .ORG $8000
+
+load_bg_palette:
+    ; background palette
+    LDA #$3f
+    STA PPUADDR
+    LDA #$00
+    STA PPUADDR
+    
+    LDA #$3f
+    STA PPUDATA   
+    LDA #$14
+    STA PPUDATA
+    LDA #$24
+    STA PPUDATA
+    LDA #$34
+    STA PPUDATA
+    RTS
 
 load_background:
     LDA PPUSTATUS
@@ -55,20 +76,7 @@ start:
     LDA #%000111100
     STA PPUMASK
 
-    ; background palette
-    LDA #$3f
-    STA PPUADDR
-    LDA #$00
-    STA PPUADDR
-    
-    LDA #$3f
-    STA PPUDATA   
-    LDA #$14
-    STA PPUDATA
-    LDA #$24
-    STA PPUDATA
-    LDA #$34
-    STA PPUDATA
+    JSR load_bg_palette
 
     LDA #$20
     STA nam_h
@@ -85,20 +93,44 @@ start:
 loop:
     JMP loop
 
-; readjoy:
-;     LDA #$01
-;     STA JOYPAD1
-;     STA buttons
-;     LSR a
-;     STA JOYPAD1
-; joyloop:
-;     LDA JOYPAD1
-;     LSR A
-;     ROL buttons
-;     BCC joyloop
-;     RTS
+readjoy:
+    PHA
+    LDA #$01
+    STA JOYPAD1
+    STA buttons
+    LSR a
+    STA JOYPAD1
+joyloop:
+    LDA JOYPAD1
+    LSR A
+    ROL buttons
+    BCC joyloop
+    PLA
+    RTS
     
 nmi:
+    JSR readjoy
+    
+    LDA buttons
+    AND #%00000001
+    BNE scroll_bg_right
+    LDA buttons
+    AND #%00000010
+    BNE scroll_bg_left
+    RTI
+scroll_bg_right:
+    INC scroll_x
+    LDA scroll_x
+    STA PPUSCROLL
+    LDA #0
+    STA PPUSCROLL
+    RTI
+scroll_bg_left:
+    DEC scroll_x
+    LDA scroll_x
+    STA PPUSCROLL
+    LDA #0
+    STA PPUSCROLL
     RTI
   
 irq:
