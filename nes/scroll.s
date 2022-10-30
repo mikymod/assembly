@@ -14,15 +14,16 @@
 .define PPUDATA   $2007
 .define JOYPAD1   $4016
 
-.define scroll_x  $00
-.define buttons   $01
-.define nam_l     $02
-.define nam_h     $03
+.define scroll_x        $00
+.define buttons         $01
+.define nam_l           $02
+.define nam_h           $03
+.define scroll_sprite_x $04
+.define scroll_sprite_y $05
 
 .ORG $8000
 
 load_bg_palette:
-    ; background palette
     LDA #$3f
     STA PPUADDR
     LDA #$00
@@ -36,6 +37,23 @@ load_bg_palette:
     STA PPUDATA
     LDA #$34
     STA PPUDATA
+    RTS
+
+load_sprite_palette:
+    LDA #$3f
+    STA PPUADDR
+    LDA #$10
+    STA PPUADDR
+
+    LDA #$3f
+    STA PPUDATA
+    LDA #$11
+    STA PPUDATA
+    LDA #$21
+    STA PPUDATA
+    LDA #$31
+    STA PPUDATA
+    
     RTS
 
 load_background:
@@ -67,9 +85,24 @@ loop_bg:
 end_bg:
     RTS
 
+load_sprite:
+    PHA
+    LDA #0
+    STA OAMADDR
+    LDA #$20
+    STA OAMDATA
+    LDA #$76
+    STA OAMDATA
+    LDA #%10000001
+    STA OAMDATA
+    LDA #$20
+    STA OAMDATA
+    PLA
+    RTS
+
 start:
     ; enable ppu
-    LDA #%10000000
+    LDA #%10001000
     STA PPUCTRL
 
     ; set ppu mask
@@ -77,6 +110,7 @@ start:
     STA PPUMASK
 
     JSR load_bg_palette
+    JSR load_sprite_palette
 
     LDA #$20
     STA nam_h
@@ -89,6 +123,8 @@ start:
     LDA #$00
     STA nam_l
     JSR load_background
+    
+    JSR load_sprite
 
 loop:
     JMP loop
@@ -114,29 +150,81 @@ nmi:
     LDA buttons
     AND #%00000001
     BNE scroll_bg_right
+    
     LDA buttons
     AND #%00000010
     BNE scroll_bg_left
-    RTI
+    
+    LDA buttons
+    AND #%00001000
+    BNE scroll_sprite_up
+    
+    LDA buttons
+    AND #%00000100
+    BNE scroll_sprite_down
+    
+    JMP apply_scroll
+    
 scroll_bg_right:
+    LDA scroll_x
+    CMP #$00
+    BEQ scroll_sprite_right
     INC scroll_x
-    LDA scroll_x
-    STA PPUSCROLL
-    LDA #0
-    STA PPUSCROLL
-    RTI
+    JMP scroll_sprite_right
 scroll_bg_left:
+    LDA scroll_x
+    CMP #$82
+    BEQ scroll_sprite_left
     DEC scroll_x
+    JMP scroll_sprite_left
+stop_bg_scroll:
+    JMP apply_scroll
+    
+scroll_sprite_right:
+    LDA scroll_sprite_x
+    CMP #$F8
+    BEQ apply_scroll
+    INC scroll_sprite_x
+    JMP apply_scroll
+scroll_sprite_left:
+    LDA scroll_sprite_x
+    CMP #$00
+    BEQ apply_scroll
+    DEC scroll_sprite_x
+    JMP apply_scroll
+scroll_sprite_up:
+    LDA scroll_sprite_y
+    CMP #$00
+    BEQ apply_scroll
+    DEC scroll_sprite_y
+    JMP apply_scroll   
+scroll_sprite_down:
+    LDA scroll_sprite_y
+    CMP #$E7
+    BEQ apply_scroll
+    INC scroll_sprite_y
+    JMP apply_scroll
+
+apply_scroll:
     LDA scroll_x
     STA PPUSCROLL
-    LDA #0
+    LDA #$00
     STA PPUSCROLL
-    RTI
-  
-irq:
+    
+    LDA #$00
+    STA OAMADDR
+    LDA scroll_sprite_y
+    STA OAMDATA
+    
+    LDA #$03
+    STA OAMADDR
+    LDA scroll_sprite_x
+    STA OAMDATA
+    
     RTI
     
-
+irq:
+    RTI
 
 .goto $FFFA
 
